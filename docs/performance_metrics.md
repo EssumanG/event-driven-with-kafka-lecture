@@ -1,51 +1,231 @@
-# Spark Structured Streaming Metrics Overview
+#  Performance Metrics Walkthrough (Grafana + Prometheus)
 
-## Project Summary
+This document explains how to:
 
-This document provides an overview of key performance metrics for a Spark Structured Streaming job processing **e-commerce user events** (Product View & Product Purchase) using **FileStreamSource** and writing with **ForeachBatchSink**.
+1. Verify Spark metrics in Prometheus  
+2. Visualize them in Grafana  
+3. Understand what each metric means  
+4. Detect performance issues in Structured Streaming  
 
+---
 
->*N.B.: The performance metrics below are derived from a single batch (batchId = 9). Values may vary across batches depending on data volume and system load.*
-## Streaming Batch Metrics (Batch ID: 9)
+# Architecture Overview
 
-| Metric                | Product View Events | Product Purchase Events | Combined Total |
-|-----------------------|---------------------|-------------------------|----------------|
-| **Batch ID**          | 9                   | 9                       | 9              |
-| **Batch Timestamp**   | 2025-05-01T11:07:41Z| 2025-05-01T11:07:41Z    | —              |
-| **Source Path**       | `/opt/real-time-spark/e-commerce-user-events/product-view-events` | `/opt/real-time-spark/e-commerce-user-events/product-purchase-events` | — |
-| **Input Rows**        | 28                  | 39                      | **67 rows**    |
-| **Input Rows/sec**    | 18.22 rows/sec      |   25.78 rows/sec          | **44.00 rows/sec** |
-| **Processed Rows/sec**| 13.79 rows/sec      | 19.20 rows/sec          | **32.99 rows/sec** |
-| **Start Offset (log)**| 8                   | 8                       | —              |
-| **End Offset (log)**  | 9                   | 9                       | —              |
-| **Sink Description**  | ForeachBatchSink    | ForeachBatchSink        | ForeachBatchSink |
+Spark → Prometheus → Grafana
 
-## Processing Duration Breakdown (milliseconds)
+- **Spark** exposes metrics
+- **Prometheus** scrapes and stores them
+- **Grafana** visualizes them
 
-| Stage            | Product View Events | Product Purchase Events |
-|------------------|---------------------|-------------------------|
-| **Trigger Execution** | 2031 | 2031 |
-| **Get Batch**    | 85                  | 97                      |
-| **Query Planning** | 49                | 54                      |
-| **Add Batch**    | 807                 | 718                     |
-| **Commit Offsets** | 133               | 131                     |
-| **WAL Commit**   | 166                 | 182                     |
-| **Latest Offset** | 786                | 837                     |
+---
 
-## Key Performance Insights
+#  Step 1: Verify Prometheus is Scraping Spark
 
-- **Total Data Processed**: 67 rows from both sources.
-- **Input Throughput**: ~44 rows/sec.
-- **Processing Throughput**: ~33 rows/sec.
-- **Trigger Execution Time**: ~2.03 seconds for both sources.
-- **Source Type**: FileStreamSource (directory-based input).
-- **Sink Type**: ForeachBatchSink (custom batch processing logic).
+Open Prometheus UI:
+`http://localhost:9090`
 
-## Observations & Considerations
+Go to:
 
-- **Balanced Input Rates**: Both sources show steady input rates.
-- **Processing Lag**: Processed rows/sec slightly lower than input rows/sec → monitor for lag buildup over time.
-- **Batch Duration Stability**: Consistent ~2-second trigger execution suggests stable micro-batch processing.
-- **No Stateful Operations**: `stateOperators` is empty → no aggregations with watermarking or joins.
+**Status → Targets**
+You should see your Spark application target as: `UP`
 
 
+If it is `DOWN`, Prometheus is not scraping Spark correctly.
+
+---
+
+##  Test a Metric in Prometheus
+
+Go to:
+
+**Graph → Expression**
+
+Try querying: 
+`spark_input_rows_per_second`
+OR
+`spark_processed_rows_per_second`
+
+If data appears → metrics are flowing correctly.
+
+---
+
+# Step 2: Open Grafana
+
+Open: `http://localhost:3000`
+
+
+Navigate to:
+
+**Dashboards → Your Imported Spark Dashboard**
+
+Ensure the data source is set to: `Prometheus`
+
+---
+
+#  Key Streaming Metrics Explained
+
+---
+
+## 1. Input Rows per Second
+
+Metric example: `spark_input_rows_per_second`
+
+### What it means
+
+- Number of records received per second
+- Measures ingestion speed
+
+### Interpretation
+
+| Scenario | Meaning |
+|----------|----------|
+| Input rate stable | Healthy ingestion |
+| Sudden spike | Traffic burst |
+| Drops to zero | No incoming data |
+
+---
+
+##  2. Processed Rows per Second
+
+Metric example:`spark_processed_rows_per_second`
+
+### What it means
+
+- Number of records processed per second
+- Measures compute throughput
+
+### Interpretation
+
+| Scenario | Meaning |
+|----------|----------|
+| Processing ≥ Input | System healthy |
+| Processing < Input | Falling behind |
+| Processing fluctuates heavily | Resource pressure |
+
+---
+
+##  3. Batch Duration
+
+Metric example: `spark_streaming_lastCompletedBatch_processingDelay`
+
+### What it means
+
+- Time taken to process one micro-batch
+
+Compare this to your trigger interval.
+
+Example:
+
+If trigger = 10 seconds  
+Batch duration = 12 seconds  
+
+➡ Spark is falling behind.
+
+---
+
+##  4. Falling Behind Detection
+
+You are falling behind when:
+```
+Processing Rate < Input Rate
+```
+
+This means:
+
+- Backpressure building
+- Latency increasing
+- Potential memory pressure
+
+---
+
+#  How to Diagnose Issues Using Grafana
+
+---
+
+## Case 1: Input Rate Spikes
+
+If green line spikes:
+
+- Check Kafka lag
+- Check producer burst traffic
+- Scale Spark executors
+
+---
+
+## Case 2: Processing Rate Drops
+
+Possible causes:
+
+- CPU saturation
+- Shuffle pressure
+- Too many partitions
+- State store growth
+
+Check:
+
+- Executor memory
+- Shuffle partitions
+- State store size
+
+---
+
+## Case 3: Increasing Batch Duration
+
+Causes:
+
+- Large state store
+- Skewed partitions
+- Expensive joins/windows
+- Garbage collection
+
+---
+
+# Healthy Streaming Pattern
+
+You want:
+
+- Input rate ≈ Processing rate
+- Stable batch duration
+- No increasing trend in lag
+
+Graph should look:
+
+- Parallel green & orange lines
+- Stable batch duration stat
+
+---
+
+# Advanced Monitoring Tips
+
+### Monitor:
+
+- JVM memory usage
+- Executor CPU
+- State store size
+- Shuffle read/write size
+
+### Watch for:
+
+- Gradual performance degradation
+- Sudden latency spikes
+- Memory growth without drop
+
+---
+
+# Summary
+
+| Metric | Purpose | Healthy Sign |
+|--------|----------|--------------|
+| Input Rate | Ingestion speed | Stable |
+| Processing Rate | Throughput | ≥ Input |
+| Batch Duration | Latency | < Trigger interval |
+| Lag | Backpressure | Near zero |
+
+---
+
+Proper monitoring ensures:
+
+- Low latency
+- No backlog
+- Scalable streaming architecture
+- Production-ready performance
