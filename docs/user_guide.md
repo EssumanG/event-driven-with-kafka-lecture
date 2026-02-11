@@ -12,8 +12,8 @@
 1. **Clone the repository**  
    First, clone the repository to your local machine:
    ```bash
-   git clone https://github.com/GEssuman/data-engineering-labs.git
-   cd data-engineering-labs
+   git clone https://github.com/GEssuman/event-driven-with-kafka-lecture.git
+   cd event-driven-with-kafka-lecture
 
 
 3. **Create `.env` file**
