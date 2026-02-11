@@ -262,6 +262,6 @@ for message in consumer:
 
 For detailed implementation steps and explanations, see:
 
-[Project Documentation](./docs/project_overview.md)
+[Project Documentation](./docs/README.md)
 
 ---
