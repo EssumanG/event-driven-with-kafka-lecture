@@ -16,6 +16,5 @@ ADD CONSTRAINT event_log_pk UNIQUE (
     event_type,
     product_name,
     customer_name,
-    event_date,
-    quantity
+    event_date
 );
