@@ -52,7 +52,7 @@ An **event** is a fact that something has already happened:
 - Fault isolation
 
 **Diagram: Monolithic vs Event-Driven**
-![Monolithic vs Event-Driven](./monolith-vs-event_driven.png)
+![Monolithic vs Event-Driven](./docs/monolith-vs-event_driven.png)
 
 
 ---
@@ -110,7 +110,7 @@ Event-driven systems provide decoupling across three dimensions:
 - **Consumer Group** – enables parallel consumption
 
 **Diagram: Kafka Producer → Brokers → Consumers**
-![ Kafka Producer → Brokers → Consumers](./kafka-flow.png)
+![ Kafka Producer → Brokers → Consumers](./docs/kafka-flow.png)
 
 
 ---
@@ -128,7 +128,7 @@ Event-driven systems provide decoupling across three dimensions:
 - Followers replicate data
 
 **Diagram: Kafka Brokers Communication**
-![](./kafka-architecture.png)
+![](./docs/kafka-architecture.png)
 
 
 ---
@@ -193,19 +193,19 @@ Challenges:
 - Better scalability
 
 **Diagram: ZooKeeper vs KRaft Architecture**
-![ZooKeeper Architecture](./kafa-with-zookeper-arch.png)
+![ZooKeeper Architecture](./docs/kafa-with-zookeper-arch.png)
 
-![KRaft Architecture](./kraft_architecture.png)
+![KRaft Architecture](./docs/kraft_architecture.png)
 
 
 ---
-# Kafka Connect  
+## 10. Kafka Connect  
 ### Data Integration Framework for Apache Kafka
 
 Kafka Connect is a framework for **reliably moving data into and out of Kafka**.  
 It eliminates the need to write custom producers and consumers by providing **pre-built, scalable, and fault-tolerant connectors**.
 
-## 10. Kafka in Data Engineering Pipelines
+## 11. Kafka in Data Engineering Pipelines
 
 ### Common Use Cases
 - Change Data Capture (Debezium → Kafka)
@@ -215,3 +215,53 @@ It eliminates the need to write custom producers and consumers by providing **pr
 - Metrics and log aggregation
 - Event-driven microservices
 
+
+---
+
+## 12. Code Walkthrough
+
+### Kafka Producer (Python)
+```python
+from kafka import KafkaProducer
+import json
+
+producer = KafkaProducer(
+    bootstrap_servers='localhost:9092',
+    value_serializer=lambda v: json.dumps(v).encode('utf-8')
+)
+
+producer.send('orders', {
+    'order_id': 101,
+    'amount': 250,
+    'currency': 'USD'
+})
+
+producer.flush()
+```
+
+### Kafka Consumer (Python)
+```
+from kafka import KafkaConsumer
+import json
+
+consumer = KafkaConsumer(
+    'orders',
+    bootstrap_servers='localhost:9092',
+    group_id='order-processing',
+    value_deserializer=lambda m: json.loads(m.decode('utf-8'))
+)
+
+for message in consumer:
+    print(message.value)
+```
+
+
+---
+
+## Hands-On Documentation
+
+For detailed implementation steps and explanations, see:
+
+[Project Documentation](./docs/project_overview.md)
+
+---

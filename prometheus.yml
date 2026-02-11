@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: 'spark-pyspark'
+    static_configs:
+      - targets: ['spark-master:9095']  # container name + metrics port
